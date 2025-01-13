@@ -16,15 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## INTRODUCTION
 
-For this case study, we aim to analyze the alcohol percentage in wine by
-examining its relationship with various chemical components and
-characteristics. We will explore how factors such as fixed acidity,
-volatile acidity, citric acid, residual sugar, chlorides, free sulfur
-dioxide, total sulfur dioxide, density, pH, sulfates, and wine type
-influence the alcohol content of wine. By understanding these
-relationships, we can gain insights into the factors that contribute to
-variations in alcohol percentage. We are using a significance level of
-0.05.
+For this case study, we aim to analyze the alcohol percentage in wine by examining its relationship with various chemical indicators. The main indicators/predictors we consider here are fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulfates, and wine type.
+
+We will analyze this data using a variety of statistical linear models, such as multiple linear regression, stepwise & greedy model selection, Ridge/LASSO shrinkage, and principle components regression. We will also try to validate our best model (indicated by smallest training RMSE) by analyzing the base linear model assumptions and by finding the RMSE of the model on a test data.
+
+By understanding these relationships, we can gain insights into the factors that contribute to variations in alcohol percentage. Note we are using a significance level of 0.05 throughout this study..
 
 **Read the data**
 
