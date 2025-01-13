@@ -1,0 +1,904 @@
+---
+title: "Case Study 2"
+author: "Akshay Vellore, Irith Chaturvedi, Aryaman Kushwaha, Pranav Pullabhotla"
+date: "2024-12-07"
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## INTRODUCTION
+
+For this case study, we aim to analyze the alcohol percentage in wine by
+examining its relationship with various chemical components and
+characteristics. We will explore how factors such as fixed acidity,
+volatile acidity, citric acid, residual sugar, chlorides, free sulfur
+dioxide, total sulfur dioxide, density, pH, sulfates, and wine type
+influence the alcohol content of wine. By understanding these
+relationships, we can gain insights into the factors that contribute to
+variations in alcohol percentage. We are using a significance level of
+0.05.
+
+**Read the data**
+
+```{r}
+wines = read.csv('wines.csv')
+head(wines)
+```
+
+## Exploratory Data Analysis
+
+a)  Dimensions of our dataset
+
+```{r}
+dim(wines)
+```
+
+b)  Histogram for the Alcohol percentage for Wines
+
+```{r}
+hist(wines$alcohol, xlab = "Alcohol Pecentage", 
+     main = "Histogram for the Alcohol percentage for Wines")
+```
+
+c)  Box PLot for Alcohol Percentage
+
+```{r}
+boxplot(x = wines$alcohol, ylab = "Alcohol Pecentage", 
+     main = "Box Plot for the Alcohol percentage in Wines")
+```
+
+d)  Number of missing values (if any) per column
+
+```{r}
+colSums(is.na(wines))
+```
+
+e)  Correlation matrix
+
+```{r}
+wines_cont = wines[, -c(12)]
+cor(wines_cont)
+```
+
+There is one notable pair of highly correlated variables: free sulphur 
+dioxide content and total sulphur dioxide (0.72)
+
+f)  Scatter plots to visualize highly correlated variables
+
+```{r}
+par(mfrow = c(1, 2))
+plot(x = wines$free.sulfur.dioxide, wines$total.sulfur.dioxide, 
+     ylab = "total sulfur dioxide Percentage", 
+     xlab = "free sulfur dioxide Percentage")
+```
+
+The scatter plot do show some correlation for our variables. It would
+be interesting to explore their relationships further in our report.
+
+g)  Some summary statistics for the Alcohol content:
+
+```{r}
+summary(wines$alcohol)
+```
+
+Minimum alcohol percent for a wine in the dataset = 8% Mean alcohol
+percent for a wine in the dataset = 10.49% Maximum alcohol percent for a
+wine in the dataset = 14.9%
+
+```{r}
+wines[which(wines$alcohol == max(wines$alcohol)), ]
+```
+
+## Linear Model Development
+
+We will create a 80-20 train and test split on our data.
+
+```{r}
+set.seed(2345)
+train = sample(1:nrow(wines), 0.8*nrow(wines))
+train.df = wines[train,]
+test.df = wines[-train,]
+dim(train.df)
+dim(test.df)
+```
+
+Training and Testing Error for the full model
+
+```{r}
+wines.training = lm(alcohol~. , train.df)
+rmse = function(x, y) {
+  sqrt(mean((x-y)^2))
+}
+rmse(fitted(wines.training), train.df$alcohol)
+```
+
+```{r}
+rmse(predict(wines.training, test.df), test.df$alcohol)
+```
+
+This is the RMSE for the training and testing data using the full model
+
+train RMSE = 0.51558 test RMSE = 0.45287
+
+a)  Greedy Algorithms for Model selection using information criteria
+
+Greedy Algorithm using **AIC** for model selection
+
+```{r}
+step(lm(alcohol ~., data = train.df), direction = "both")
+```
+
+According to the AIC criteria for model selection:
+
+The ideal model with the lowest AIC is:
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + chlorides + free.sulfur.dioxide + density + pH +
+sulphates + type
+
+Greedy Algorithm using **BIC** for model selection
+
+```{r}
+n = nrow(train.df)
+step(lm(alcohol~., data = train.df), direction = "both", k = log(n))
+```
+
+The ideal model calculated using BIC critera is the same as calculated
+using the AIC criteria, i.e:
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + chlorides + free.sulfur.dioxide + density + pH +
+sulphates + type
+
+Calculating the RMSE for the training and testing data using the model
+selected from the Greedy Algorithm.
+
+```{r}
+wines.training_greedy = lm(alcohol ~ fixed.acidity + volatile.acidity + 
+    citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + density + 
+    pH + sulphates + type, train.df)
+
+rmse(fitted(wines.training_greedy), train.df$alcohol)
+```
+
+```{r}
+rmse(predict(wines.training_greedy, test.df), test.df$alcohol)
+```
+
+This is the RMSE for the training and testing data using the model
+chosen with greedy algorithms
+
+train RMSE = 0.5156707 test RMSE = 0.4527027
+
+(b) Leap-and-bounds algorithm using at least 3 different criteria.
+
+```{r}
+library(leaps)
+```
+
+```{r}
+regsubsets_selection = regsubsets(alcohol~., data = train.df)
+```
+
+```{r}
+rs = summary(regsubsets_selection)
+```
+
+```{r}
+rs$which
+```
+
+Adjusted-R\^2 - The best model is the one with the largest Adjusted R\^2
+
+```{r}
+rs$adjr2
+```
+
+Using Adjusted R\^2 values, the ideal model is Model 8 - Adj R\^2 =
+0.8074568
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + density + pH + sulphates + type
+
+CP Mallows - The best model is the one with the lowest Cp value
+
+```{r}
+rs$cp
+```
+
+Using Cp mallows, the ideal model is Model 8 - Cp = 81.62912
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + density + pH + sulphates + type
+
+BIC - The best model is the one with the lowest BIC value
+
+```{r}
+rs$bic
+```
+
+Using the BIC, the ideal model is Model 8 - BIC = -8492.725
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + density + pH + sulphates + type
+
+All three criterias state that the model 8 is the best model when using
+the Leaps and Bounds algorithm.
+
+Using the RMSE for the training and testing data using the Model 8
+
+```{r}
+wines.training_l_and_b = lm(alcohol ~ fixed.acidity + volatile.acidity + 
+    citric.acid + residual.sugar + density + pH + sulphates + type, train.df)
+
+rmse(fitted(wines.training_l_and_b), train.df$alcohol)
+```
+
+```{r}
+rmse(predict(wines.training_l_and_b, test.df), test.df$alcohol)
+```
+
+This is the RMSE for the training and testing data using the model
+chosen with Leaps and Bounds algorithm
+
+train RMSE = 0.5193281 test RMSE = 0.4531508
+
+c)  Principal Components Regression
+
+```{r}
+library(pls)
+```
+
+```{r}
+wines.pcr = pcr(alcohol~., data = train.df, scale = TRUE, ncomp = 11,
+                validation = "CV")
+```
+
+```{r}
+summary(wines.pcr)
+```
+
+Choosing the optimal number of components using a Scree Plot:
+
+```{r}
+wines.pca = prcomp(train.df[,-c(11, 12)])
+plot(wines.pca$sdev[1:11], ylab = "PCAs Std Dev", xlab = "PCA number", 
+     type = "l")
+```
+
+Five PCs is a reasonable selection according to the scree plot since
+this is where the PCA Standard Deviation levels out
+
+Calculating RMSE with 5 components:
+
+```{r}
+wines_pcr_pred_5 = predict(wines.pcr, test.df, ncomp = 5)
+rmse(wines_pcr_pred_5, test.df$alcohol)
+```
+
+With 5 PCs, we get a RMSE = 0.940054
+
+But we want to select enough number of PCs to minimize RMSE, we use the
+RMSEP to select PCs instead:
+
+```{r}
+set.seed(135)
+pcr.mse = RMSEP(wines.pcr, newdata = test.df)
+plot(pcr.mse)
+```
+
+Using the plot, the model with 11 components gives the lowest RMSEP
+value.
+
+```{r}
+wines_pcr_pred = predict(wines.pcr, test.df, ncomp = 11)
+rmse(wines_pcr_pred, test.df$alcohol)
+```
+
+With 11 PCs, we get a RMSE = 0.452872, which is the same as the full
+model.
+
+d)  Ridge and LASSO Regression:
+
+**Ridge**
+
+```{r}
+library(MASS)
+```
+
+```{r}
+train.df$type <- as.factor(train.df$type)
+wines.ridge <- lm.ridge(alcohol ~ fixed.acidity + volatile.acidity + 
+    citric.acid + total.sulfur.dioxide + residual.sugar + chlorides + 
+    free.sulfur.dioxide + density + pH + sulphates, data = train.df, 
+    lambda = seq(0, 1, len = 200))
+summary(wines.ridge)
+```
+
+```{r}
+matplot(wines.ridge$lambda, coef(wines.ridge), type="l", 
+        xlab=expression(lambda), ylab=expression(hat(beta)), col=1)
+which.min(wines.ridge$GCV)
+abline(v = 0.165829146)
+```
+
+Our chosen lambda which is a regularization parameter that controls the
+penalty applied to regression coefficients is 0.165829146
+
+Train RMSE calculation
+
+```{r}
+wines.pred.train <- cbind(1, as.matrix(train.df[,-c(11, 12)]))
+wines.pred.train <- wines.pred.train %*% coef(wines.ridge)[34,]
+rmse(wines.pred.train, train.df$alcohol)
+```
+
+Train RMSE = 3.019105
+
+Test RMSE calculation
+
+```{r}
+wines.pred.test <- cbind(1, as.matrix(test.df[,-c(11, 12)])) 
+wines.pred.test <- wines.pred.test %*% coef(wines.ridge)[34,]
+rmse(wines.pred.test, test.df$alcohol)
+```
+
+Test RMSE = 2.963918
+
+Ridge Regression gave us very high RMSEs for training and testing,
+indicating that it is a poor choice for this dataset.
+
+**Lasso**
+
+```{r}
+train.y = train.df$alcohol
+train.x = as.matrix(train.df[,-c(11, 12)])
+
+library(lars)
+```
+
+```{r}
+wineslasso = lars(train.x, train.y)
+```
+
+Selecting parameters using Cross Validation
+
+```{r}
+set.seed(123)
+cv.ml = cv.lars(train.x, train.y)
+```
+
+```{r}
+which.min(cv.ml$cv)
+```
+
+```{r}
+svm<-cv.ml$index[which.min(cv.ml$cv)]
+svm
+```
+
+Predicted value of the train data
+
+```{r}
+trainx<-as.matrix(train.df[,-c(11, 12)])
+
+predlasso<-predict(wineslasso, trainx, s=svm, mode="fraction")
+rmse(train.df$alcohol, predlasso$fit)
+```
+
+Predicted value of the test data
+
+```{r}
+testx<-as.matrix(test.df[,-c(11, 12)])
+
+predlasso<-predict(wineslasso, testx, s=svm, mode="fraction")
+rmse(test.df$alcohol, predlasso$fit)
+```
+
+For LASSO regression:
+
+Train RMSE: 0.5557 Test RMSE: 0.5050
+
+Comparing all of the different methods, we found that the greedy
+algorithm with AIC and BIC gave us the model with the best (i.e. lowest)
+Training and Test RMSE, and therefore it is the most optimal model out
+of all the methods we tested.
+
+**Therefore, our best linear model (based on minimizing RMSE) is:**
+
+alcohol \~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + chlorides + free.sulfur.dioxide + density + pH +
+sulphates + type
+
+## Model Diagnostics
+
+**1. UNUSUAL OBSERVATIONS**
+
+**High Leverage Points**
+
+```{r}
+wines.1 = wines.training_greedy
+wines.leverages = lm.influence(wines.1)$hat
+head(wines.leverages)
+```
+
+Checking for Good and bad - high leverage Points:
+
+```{r}
+library(faraway)
+halfnorm(wines.leverages, nlab=6,
+labs=as.character(1:length(wines.leverages)), ylab="Leverages")
+
+```
+
+In the plot above, we do not necessarily look for a straight line fit.
+We use this plot to identify any leverages that do not follow the
+pattern suggested by the rest of the data. In this case, some of the
+leverages seem to be unusually large. Next, we determine which of the
+leverages exceed the 2p/n threshold. p = no. of predictors for the
+Model.
+
+```{r}
+wines.leverages.high =
+wines.leverages[wines.leverages>2*(10/dim(wines)[1])]
+length(wines.leverages.high)
+```
+
+We identify 465 High Leverage Points in our samples. next we classify
+the Leverage Points as Good or Bad:
+
+Percentage of High Leverage Points
+
+```{r}
+465/6497
+```
+
+Classifying as Good or Bad High Leverage Points:
+
+```{r}
+# Calculate the IQR for the dependent variable
+IQR_y = IQR(wines$alcohol)
+#Define a range with its lower limit being (Q1 - IQR) and upper limit being
+#(Q3 + IQR)
+QT1_y = quantile(wines$alcohol,0.25)
+QT3_y = quantile(wines$alcohol,0.75)
+lower_lim_y = QT1_y - IQR_y
+upper_lim_y = QT3_y + IQR_y
+vector_lim_y = c(lower_lim_y,upper_lim_y)
+# Range for y variable
+vector_lim_y
+
+```
+
+```{r}
+wines.highlev = wines[wines.leverages>2*10/6497,]
+wines.highlev_lower =
+wines.highlev[wines.highlev$alcohol < vector_lim_y[1], ]
+wines.highlev_upper =
+wines.highlev[wines.highlev$alcohol > vector_lim_y[2], ]
+wines.highlev2 = rbind(wines.highlev_lower,wines.highlev_upper)
+wines.highlev2
+```
+
+**We have 27 bad High leverage Points in our dataset.**
+
+**OUTLIERS**
+
+Bonferroni Correction for Outlier test:
+
+```{r}
+wines.resid = rstudent(wines.1);
+# Critical value WITH Bonferroni correction #
+bonferroni_cv = qt(.05/(2*6497), 6497-10-1)
+bonferroni_cv
+```
+
+Now we need to find out what studentized residuals exceed the Bonferroni
+critical value:
+
+```{r}
+wines.resid.sorted = sort(abs(wines.resid), decreasing=TRUE)[1:10]
+print(wines.resid.sorted)
+
+```
+
+Comparing the values against the absolute critical value from the
+Bonferroni outlier test:
+
+```{r}
+wines.outliers =
+wines.resid.sorted[abs(wines.resid.sorted) > abs(bonferroni_cv)]
+print(wines.outliers)
+```
+
+**We have 10 outliers in our dataset**
+
+**Influential Points**
+
+To check for high influential points, we will use Cook’s distance with
+the cooks.distance R function:
+
+```{r}
+wines.cooks = cooks.distance(wines.1)
+sort(wines.cooks, decreasing = TRUE)[1:10]
+
+```
+
+```{r}
+plot(wines.cooks)
+```
+
+**We have one influential point - data point 4381 since it's cook's
+distance is greater than 1**
+
+As point 4381 is also an outlier, we will remove it from the dataset,
+since it may be causing an unusual change in behavior in our model that
+is not consistent with the rest of the data. We will rerun the model on
+the new dataset.
+
+```{r}
+wines_reduced = wines[-4381,]
+dim(wines_reduced)
+```
+
+Creating a new model based on our reduced dataset:
+
+```{r}
+wines.1.red = lm(data = wines_reduced, alcohol ~ fixed.acidity + 
+    volatile.acidity + citric.acid + residual.sugar + chlorides + 
+    free.sulfur.dioxide + density + pH + sulphates + type)
+summary(wines.1.red)
+```
+
+2.  **Constant variance Assumption**
+
+The Breusch-Pagan test:
+
+null hypothesis (Ho): the variance of error terms is constant (i.e.,
+there is homoscedasticity).
+
+Alternative Hypothesis (H1): The variance of error terms is not constant
+(i.e., there is heteroscedasticity).
+
+```{r}
+library(lmtest)
+bptest(wines.1.red)
+```
+
+**The variance of error terms is not constant** Based on the p-value of
+the BP test = 2.2e-16 \< 0.05 -\> the p-value at the significance level,
+we reject the null hypothesis and conclude that the Variance is not
+constant.
+
+Residuals vs Fitted Plot:
+
+```{r}
+plot(wines.1.red, which = 1)
+```
+
+Although the points do seem to be scattered along the zero line - almost
+forming a football shaped cloud, there are some departures from the line
+that are not accounted for.
+
+To handle this, we will perform a **variance stabilizing
+transformation** on our response:
+
+We aim to find a function of the response, **h(Y)** that helps achieve
+constant variance. From the above graph, we can say that the Var(Y) is
+proportional to E(Y).
+
+We will perform a square root transformation of the response:
+
+```{r}
+wines_reduced$sqrt_alcohol = sqrt(wines_reduced$alcohol)
+wines.1.red_var = lm(data = wines_reduced, sqrt_alcohol ~ fixed.acidity + 
+    volatile.acidity + citric.acid + residual.sugar + chlorides + 
+    free.sulfur.dioxide + density + pH + sulphates + type)
+summary(wines.1.red_var)
+```
+
+```{r}
+bptest(wines.1.red_var)
+```
+
+Based on the p-value of the BP test = 2.2e-16 \< 0.05 -\> the p-value at
+the significance level, we again reject the null hypothesis and conclude
+that the Variance after transformation of the response is not constant.
+
+A look at the Residuals vs. Fitted plot:
+
+```{r}
+plot(wines.1.red_var, which = 1)
+```
+
+The statistical BP test still fails for the transformed data, we
+conclude that the transformations did not help in stabilizing and
+upholding the constant variance assumption. Another approach that may 
+resolve the problem is a Weighted Least Squares method. Let's use this
+on top of the response transformation.
+
+```{r}
+wt <- lm(abs(wines.1.red$residuals) ~ wines.1.red$fitted.values)$fitted.values^2
+wt <- 1/wt
+#perform weighted least squares regression
+wls_wines.1.red <- lm(alcohol ~ fixed.acidity + volatile.acidity + citric.acid +
+residual.sugar + chlorides + free.sulfur.dioxide + density + pH +
+sulphates + type, data = wines_reduced, weights=wt)
+
+#view summary of model
+summary(wls_wines.1.red)
+```
+
+```{r}
+bptest(wls_wines.1.red)
+```
+It seems that even the Weighted Least Squares approach could not resolve this
+issue with non-constant variance. This is a potential shortcoming of our final
+model. Conclusions that are drawn from our selected model may not be reliable.
+
+3.  **Test for Normality of Residuals**
+
+We fist plot a histogram of the residuals for our model:
+
+```{r}
+hist(wines.1.red$residuals)
+
+```
+
+The residuals for the response do look like they follow a Normal
+distribution, to confirm this, we can run a statistical Test for
+Normality:
+
+As we have a large number of samples in our data set, the statistical
+test to check for normality in this case will be a Kolmogorov-Smirnov
+test:
+
+H0: The residuals are normally distributed (normality assumption holds)
+Ha: The residuals aren't normally distributed (normality assumption
+doesn't hold)
+
+```{r}
+ks.test(wines.1.red$residuals, "pnorm")
+```
+
+**The Normality assumption is not met** Based on the p-value of the KS
+test = 2.2e-16 \< 0.05 -\> the p-value at the significance level, we
+reject the null hypothesis and conclude that the Normality assumption
+for the error terms is not met.
+
+To handle this, we will perform a Box-Cox transformation of the
+response:
+
+```{r}
+winesB.transformation = boxcox(wines.1.red,
+lambda=seq(-2, 2, length=400))
+best_lambda <- winesB.transformation$x[which.max(winesB.transformation$y)]
+best_lambda
+```
+
+The 95% Interval for the Box-Cox plot contains ${\lambda}$s near -0.5, so we 
+will perform an inverse square root transformation to try and fix the issues
+with normality.
+
+```{r}
+wines_reduced$alcohol_trans = (wines_reduced$alcohol^(best_lambda) - 1)
+wines_reduced$alcohol_trans = wines_reduced$alcohol_trans/(best_lambda) 
+# Re-transforming the data set 
+# back to the original reduced data set and performing a log transformation 
+
+wines.1.red_norm = lm(data = wines_reduced, alcohol_trans ~ fixed.acidity + 
+                       volatile.acidity + citric.acid + 
+    residual.sugar + chlorides + free.sulfur.dioxide + density + 
+    pH + sulphates + type)
+summary(wines.1.red_norm)
+```
+
+```{r}
+hist(wines.1.red_norm$residuals)
+
+```
+
+Although the histogram of the residuals looks more like it follows a
+Normal distribution, We will look at the QQ plot for normality:
+
+```{r}
+plot(wines.1.red_norm, which = 2)
+```
+The QQ plot sees departures from the line.
+
+```{r}
+ks.test(wines.1.red_norm$residuals, "pnorm")
+```
+
+Based on the p-value of the KS test on the transformed response =
+2.2e-16 \< 0.05 -\> the p-value at the significance level, we reject the
+null hypothesis and conclude that the Normality assumption for the error
+terms in our transformed model is again not met.
+
+This is a potential shortcoming in our model (the normality assumption
+not being met). This may cause our predictions to be unreliable.
+
+4.  **Test for Collinearity**
+
+Removing the intercept and categorical variable:
+
+Variance Inflation Factor:
+
+```{r}
+x = model.matrix(wines.1.red)[,-c(1, 11)]
+round(vif(x), dig=2)
+```
+
+Note that the standard error for the coefficient associated with
+`density` is 2.133 = (4.55)\^0.5 times larger than it would have been
+without collinearity.
+
+Computing the Condition Number
+
+```{r}
+x = x - matrix(apply(x,2, mean), 6496,9, byrow=TRUE)
+x = x / matrix(apply(x, 2, sd), 6496,9, byrow=TRUE)
+eigenvalues.x = eigen(t(x) %*% x) 
+eigenvalues.x$val
+```
+
+```{r}
+sqrt(eigenvalues.x$val[1]/eigenvalues.x$val[9])
+```
+
+The condition number is 4.968, lower than 30, so we conclude that
+collinearity is absent.
+
+5.  **Tests for Linearity**
+
+To check that all of our predictors varied linearly with the response,
+we have constructed added variable plots for each predictor, as seen
+below.
+
+```{r}
+# Fixed Acidity
+y = update(wines.1.red, .~. -fixed.acidity)$res
+x = lm(fixed.acidity ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Fixed Acidity Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Volatile Acidity
+y = update(wines.1.red, .~. -volatile.acidity)$res
+x = lm(volatile.acidity ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Volatile Acidity Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Citric Acid
+y = update(wines.1.red, .~. -citric.acid)$res
+x = lm(citric.acid ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Citric Acid Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Residual Sugar
+y = update(wines.1.red, .~. -residual.sugar)$res
+x = lm(residual.sugar ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Residual Sugar Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Chlorides
+y = update(wines.1.red, .~. -chlorides)$res
+x = lm(chlorides ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Chlorides Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Free Sulfur Dioxide
+y = update(wines.1.red, .~. -free.suldur.dioxide)$res
+x = lm(free.sulfur.dioxide ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Free Sulfur Dioxide Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Density
+y = update(wines.1.red, .~. -density)$res
+x = lm(density ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Density Residuals", ylab="Alcohol Residuals", col='Darkblue', 
+     pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# pH
+y = update(wines.1.red, .~. -pH)$res
+x = lm(pH ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="pH Residuals", ylab="Alcohol Residuals", col='Darkblue',
+     pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+
+# Sulphates
+y = update(wines.1.red, .~. -sulphates)$res
+x = lm(sulphates ~ ., data = wines_reduced[,-c(11)])$res
+plot(x, y, xlab="Sulphates Residuals", ylab="Alcohol Residuals", 
+     col='Darkblue', pch=3, size=3)
+abline(lm(y ~ x), col='Darkblue', lwd=2)
+abline(v = 0, col="red", lty=3)
+abline(h = 0, col="red", lty=3)
+```
+
+As we can see, for every added variable plot, the points are scattered
+roughly symmetrically across the best fit line (except for maybe the
+chlorides plot). Therefore, the linearity assumption is met for our MLR
+model.
+
+**Differences/Similarities in Model A and B**
+
+Model A uses testing and training data sets and uses a greedy algorithm
+for model selection based on the lowest BIC and AIC values. Model B uses
+testing procedures for model selection. The model selection is done
+based on p-values of the predictors through a backward elimination
+testing procedure. Both methods ultimately resulted in the same model
+-\> model A and model B have the same predictors.
+
+**RESULTS**
+
+```{r}
+confint(wines.training_greedy)
+```
+
+**Insights:**
+
+All 3 acidity measures (fixed, volatile, citric), sugar, and sulphates are all
+positively correlated with alcohol content, whereas chlorides, free $SO_2$, and
+density are negatively correlated with alcohol content. Free $SO_2$ in 
+particular, seems to have much smaller coefficients (by magnitude), and by 
+proxy a weaker correlation, but this could also be due to a choice in units. 
+White wines also tend to have lower alcohol contents than red wines.
+
+## CONCLUSION
+
+After fitting various types of linear models to our dataset, we found that 
+a full multiple linear regression excluding total sulfur dioxide as a predictor
+minimized both training and testing RMSE the best. However, this approach
+consistently encountered departures from key model assumptions, particularly 
+the normality and constant variance of residuals.
+
+We attempted to address these violations through remedial measures, such
+as transformations of the response variable and model adjustments, 
+but we were unsuccessful in resolving the assumption failures.
+This is a potential limitation in the reliability of our models for
+accurately predicting alcohol percentage of new wines. 
+
+One significant contributing factor to this issue was the presence of numerous 
+unusual observations in the dataset, which may have introduced noise or
+distortions to the modeling process. Addressing this limitation by
+exploring alternative models, or reassessing the predictors selected
+could improve future outcomes.
+
+Despite these challenges, our systematic approach to model selection,
+guided by metrics such as RMSE for prediction accuracy, allowed us to
+identify the most optimal model for the task. To our surprise, the
+leaps-and-bounds approach, Ridge/LASSO shrinkage, and Principal Components
+methods all fell short of the basic greedy model building method. This suggests
+that the connection between a wine's alcohol content and chemical indicators
+of the wine is fairly simple and straightforward.
